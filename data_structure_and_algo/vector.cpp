@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <utility>  // For std::forward
 
+
+
+
 template <typename T>
 class MyVector {
 private:
@@ -10,14 +13,23 @@ private:
     size_t capacity;
     size_t size;
 
+    template <class U=T, std::enable_if_t<std::is_nothrow_move_constructible_v<U>, bool> =true>
     void increaseCapacity(size_t newCapacity) {
         T* newData = new T[newCapacity];
-        for (size_t i = 0; i < size; ++i) {
-            newData[i] = std::move(data[i]);
-        }
+        std::move(data, data+size, newData);
         delete[] data;
         data = newData;
         capacity = newCapacity;
+    }
+    
+    template <class U=T, std::enable_if_t<!std::is_nothrow_move_constructible_v<U>, bool> =true>
+    void increaseCapacity(size_t newCapacity) {
+        T* newData = new T[newCapacity];
+        std::copy(data, data+size, newData);
+        delete[] data;
+        data = newData;
+        capacity = newCapacity;
+        std::cout<<"copy to expand capacity" << std::endl;
     }
 
 public:
@@ -44,9 +56,16 @@ public:
         }
         data[size++] = value;
     }
+    
+    void push_back(T&& value) {
+        if (size == capacity) {
+            increaseCapacity(capacity * 2);
+        }
+        data[size++] = std::move(value);
+    }
 
 
-	// 模板参数包
+    // 模板参数包
     template <typename... Args>
     void emplace_back(Args&&... args) {     //函数参数包
         if (size == capacity) {
@@ -95,6 +114,32 @@ public:
     }
 };
 
+
+struct NoMove {
+    NoMove() = default;
+    NoMove(NoMove const &) = default;
+    NoMove& operator=(NoMove &) = default;
+    
+    NoMove (NoMove&& other) noexcept(false) : member(std::move(other.member)) { }
+    
+    NoMove& operator=(NoMove&& other) noexcept(false) {
+        if(this != &other) {
+            member= std::move(other.member);
+        }
+        return *this;
+    }
+    
+    NoMove(int x):member(std::move(x)){}
+    
+    int member = 100;
+    
+    friend auto& operator<<(std::ostream& os, NoMove const & ms) {
+    	os << ms.member; 
+    	return os;
+    }
+};
+
+
 int main() {
     MyVector<int> v1(2, 3);
 
@@ -108,5 +153,12 @@ int main() {
     }
     std::cout << std::endl;
 
+    MyVector<NoMove> v2;
+    v2.push_back(5);
+    v2.push_back(NoMove(50));
+    for (size_t i = 0; i < v2.getSize(); ++i) {
+        std::cout << v2[i] << " ";
+    }
+    
     return 0;
 }
