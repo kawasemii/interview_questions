@@ -1,0 +1,102 @@
+#include <iostream>
+#include <stdexcept>
+#include <algorithm>
+#include <utility>
+#include <vector>
+#include <list>
+
+
+template<typename Container>
+using IteratorCategoryOf =
+    typename std::iterator_traits<typename Container::iterator>::iterator_category;
+
+
+template<typename Container>
+using HaveRandomAccessIterator =
+    std::is_base_of<std::random_access_iterator_tag, IteratorCategoryOf<Container>>;
+
+
+template <typename T>
+size_t partition(T& container, size_t low, size_t high) {
+    auto pivot = container[high];
+    size_t i = low;
+
+    for (size_t j = low; j < high; ++j) {
+        if (container[j] < pivot) {
+            std::swap(container[i], container[j]);
+            i++;
+        }
+    }
+    std::swap(container[i], container[high]);
+    
+    return i;
+}
+
+
+
+template<typename Container, typename std::enable_if<HaveRandomAccessIterator<Container>::value>::type * = nullptr>
+std::enable_if_t<!std::is_same<typename Container::value_type, char>::value, void>
+mySort(Container& arr, size_t left, size_t right) {
+    // quick sort
+    if (left < right) {
+        size_t pivotIndex = partition(arr, left, right);
+        
+        if(pivotIndex > 0)
+            mySort(arr, left, pivotIndex - 1);
+        if(pivotIndex < right)
+            mySort(arr, pivotIndex + 1, right);
+    }
+}
+
+
+template<typename Container, typename std::enable_if<HaveRandomAccessIterator<Container>::value>::type * = nullptr >
+std::enable_if_t<std::is_same<typename Container::value_type, char>::value, void>
+mySort(Container& arr, size_t left, size_t right) {
+    using T = typename std::iterator_traits<typename Container::iterator>::value_type;
+    
+    // counting sort
+    T maxVal = *std::max_element(arr.begin(), arr.end());
+    auto minVal = *std::min_element(arr.begin(), arr.end());
+    
+    size_t range = maxVal - minVal + 1;
+    std::vector<size_t> count(range, 0);
+    
+    for (auto const & val : arr) {
+        count[val - minVal]++;  
+    }
+
+    for (size_t i = 1; i < count.size(); i++) {
+        count[i] += count[i - 1];
+    }
+
+    Container output(arr.size());
+    for (auto it = arr.rbegin(); it != arr.rend(); ++it) {
+        T num = *it;
+        output[count[num - minVal] - 1] = num;
+        count[num - minVal]--;
+    }
+
+    arr = output;
+}
+
+
+
+
+
+int main() {
+    using std::cout;
+    using std::endl;
+    
+    std::vector<int> v1 = {3,6,2,3,2,1,8,5,4};
+    std::vector<char> v2 = {'r', 'C', '0', '4', '-', '.', 'f', 'A', 'b'};
+    std::list<int> l = {1,4,6,4,1};
+    mySort(v1, 0, v1.size()-1);
+    mySort(v2, 0, v2.size()-1);
+    //mySort(l, 0, l.size());
+    for(int& i: v1) cout << i <<" ";
+    cout << endl;
+    for(char& c: v2) cout << c <<" ";
+    cout << endl;
+    
+    return 0;
+}
